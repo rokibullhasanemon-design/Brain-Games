@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>At-a-Glance Visual Memory Trainer</title>
+  <!-- Load Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Load Inter & JetBrains Mono Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            slatebg: '#0f172a',
+            slatecard: '#1e293b',
+            slatecell: '#131c31',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Base dark slate environment optimized for high-contrast afterimage clarity */
+    body {
+      background-color: #0f172a;
+      color: #f8fafc;
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    /* Custom subtle range slider styling */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 999px;
+      background: #334155;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 18px;
+      width: 18px;
+      border-radius: 50%;
+      background: #38bdf8;
+      border: 2px solid #0f172a;
+      margin-top: -6px;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      background: #7dd3fc;
+    }
+    input[type="range"]:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    /* Grid Cell Transitions & States */
+    .grid-cell {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      border-radius: 0.65rem;
+      background-color: #131c31;
+      border: 1.5px solid #28354d;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1),
+                  background-color 0.14s ease,
+                  border-color 0.14s ease,
+                  box-shadow 0.14s ease;
+      cursor: pointer;
+      overflow: hidden;
+    }
+
+    .grid-cell:hover:not(.cell-locked) {
+      border-color: #475569;
+      background-color: #192540;
+    }
+
+    .grid-cell:active:not(.cell-locked) {
+      transform: scale(0.95);
+    }
+
+    .cell-locked {
+      cursor: default;
+    }
+
+    /* Spatial Target Glow */
+    .spatial-lit {
+      background: linear-gradient(135deg, #06b6d4 0%, #10b981 100%) !important;
+      border-color: #67e8f9 !important;
+      box-shadow: 0 0 18px rgba(6, 182, 212, 0.45), inset 0 0 10px rgba(255, 255, 255, 0.25);
+    }
+
+    /* User-selected spatial tile during recall */
+    .spatial-selected {
+      background: linear-gradient(135deg, #0284c7 0%, #059669 100%) !important;
+      border-color: #38bdf8 !important;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+    }
+
+    /* Active focused cell for Digit Matrix */
+    .cell-focused {
+      border-color: #38bdf8 !important;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.45);
+      background-color: #1a2946 !important;
+    }
+
+    /* Chimp Test Covered Tile */
+    .chimp-covered {
+      background: linear-gradient(180deg, #273652 0%, #1d2940 100%) !important;
+      border-color: #475569 !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+    .chimp-covered:hover {
+      border-color: #38bdf8 !important;
+      background: linear-gradient(180deg, #2f4163 0%, #22304b 100%) !important;
+    }
+
+    /* Review Phase Diagnostic States */
+    .review-match {
+      background-color: rgba(16, 185, 129, 0.16) !important;
+      border-color: #10b981 !important;
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.25);
+    }
+
+    .review-false-positive {
+      background-color: rgba(244, 63, 94, 0.16) !important;
+      border-color: #f43f5e !important;
+      box-shadow: 0 0 14px rgba(244, 63, 94, 0.25);
+    }
+
+    .review-missed {
+      background-color: rgba(251, 191, 36, 0.06) !important;
+      border: 2px dashed rgba(251, 191, 36, 0.65) !important;
+    }
+
+    /* Quadrant Chunking Crosshair Overlay */
+    .quadrant-overlay {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      z-index: 15;
+    }
+    .quadrant-line-v {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+      border-left: 1.5px dashed rgba(56, 189, 248, 0.42);
+      transform: translateX(-0.75px);
+    }
+    .quadrant-line-h {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 0;
+      border-top: 1.5px dashed rgba(56, 189, 248, 0.42);
+      transform: translateY(-0.75px);
+    }
+    .quadrant-center-dot {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 8px;
+      height: 8px;
+      border-radius: 9999px;
+      background-color: rgba(56, 189, 248, 0.65);
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.7);
+    }
+
+    /* Subtle pop animation for stamps & reveals */
+    @keyframes popIn {
+      0% { transform: scale(0.72); opacity: 0; }
+      75% { transform: scale(1.06); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-pop {
+      animation: popIn 0.16s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+
+  <!-- Main Container -->
+  <div class="w-full max-w-4xl mx-auto px-4 py-5 sm:py-7 flex-1 flex flex-col gap-5">
+
+    <!-- Header & Session Stats Bar -->
+    <header class="flex flex-col gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <!-- Custom SVG Brand Emblem -->
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-emerald-500/20 border border-cyan-400/30 flex items-center justify-center shadow-lg shadow-cyan-950/50">
+            <svg class="w-6 h-6 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12c2.5-4.5 6.25-6.75 9.75-6.75S19.25 7.5 21.75 12c-2.5 4.5-6.25 6.75-9.75 6.75S4.75 16.5 2.25 12z" />
+              <circle cx="12" cy="12" r="3" class="fill-cyan-400/30" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+              At-a-Glance Trainer
+              <span class="hidden sm:inline-block text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                Rapid Encoding
+              </span>
+            </h1>
+            <p class="text-xs text-slate-400">Train high-speed visual chunking &amp; spatial recall</p>
+          </div>
+        </div>
+
+        <!-- Right Header Controls: Sound Toggle & Auto-Advance -->
+        <div class="flex items-center gap-2">
+          <!-- Auto-Advance Difficulty Toggle -->
+          <button id="btnAutoAdvance" type="button"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slatecard border border-slate-700 text-slate-300 hover:border-slate-500 transition"
+            title="Automatically increase difficulty after a 100% round">
+            <span id="autoAdvanceDot" class="w-2 h-2 rounded-full bg-slate-500 transition-colors"></span>
+            <span>Auto-Advance</span>
+          </button>
+
+          <!-- Audio Feedback Toggle -->
+          <button id="btnSoundToggle" type="button"
+            class="p-2 rounded-lg bg-slatecard border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 transition"
+            title="Toggle subtle audio cues" aria-label="Toggle audio cues">
+            <svg id="iconSoundOn" class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" />
+            </svg>
+            <svg id="iconSoundOff" class="w-4 h-4 text-slate-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Session Stats Strip -->
+      <div class="grid grid-cols-4 gap-2 sm:gap-3 bg-slatecard/90 border border-slate-700/80 rounded-xl p-2.5 sm:p-3 shadow-md">
+        <div class="flex flex-col items-center sm:items-start px-2">
+          <span class="text-[11px] uppercase tracking-wider text-slate-400 font-medium">Rounds</span>
+          <span id="statRounds" class="text-base sm:text-lg font-bold font-mono text-white">0</span>
+        </div>
+        <div class="flex flex-col items-center sm:items-start px-2 border-l border-slate-700/70">
+          <span class="text-[11px] uppercase tracking-wider text-slate-400 font-medium">Avg Accuracy</span>
+          <span id="statAccuracy" class="text-base sm:text-lg font-bold font-mono text-cyan-400">—</span>
+        </div>
+        <div class="flex flex-col items-center sm:items-start px-2 border-l border-slate-700/70">
+          <span class="text-[11px] uppercase tracking-wider text-slate-400 font-medium">Streak (≥80%)</span>
+          <span id="statStreak" class="text-base sm:text-lg font-bold font-mono text-emerald-400">0</span>
+        </div>
+        <div class="flex flex-col items-center sm:items-start px-2 border-l border-slate-700/70">
+          <span class="text-[11px] uppercase tracking-wider text-slate-400 font-medium">Best Score</span>
+          <span id="statBest" class="text-base sm:text-lg font-bold font-mono text-amber-400">—</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Mode Selection Tabs -->
+    <nav aria-label="Training Modes" class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slatecard p-1.5 rounded-xl border border-slate-700/80">
+      <button type="button" data-mode="spatial"
+        class="mode-tab flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" class="fill-current opacity-30" />
+          <rect x="14" y="3" width="7" height="7" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" />
+          <rect x="14" y="14" width="7" height="7" rx="1.5" class="fill-current opacity-30" />
+        </svg>
+        <span>Spatial Grid</span>
+      </button>
+
+      <button type="button" data-mode="shapes"
+        class="mode-tab flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-400 hover:text-slate-200 border border-transparent">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="8" cy="8" r="4" />
+          <polygon points="16,4 20,12 12,12" />
+          <polygon points="8,14 11,17 8,20 5,17" />
+          <rect x="13" y="14" width="6" height="6" rx="1" />
+        </svg>
+        <span>Shapes &amp; Colors</span>
+      </button>
+
+      <button type="button" data-mode="chimp"
+        class="mode-tab flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-400 hover:text-slate-200 border border-transparent">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7 8h2v8M13 8h4v4h-4v4h4" />
+        </svg>
+        <span>Number Sequence</span>
+      </button>
+
+      <button type="button" data-mode="digits"
+        class="mode-tab flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-400 hover:text-slate-200 border border-transparent">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="3" />
+          <path stroke-linecap="round" d="M9 3v18M15 3v18M3 9h18M3 15h18" />
+        </svg>
+        <span>Digit Matrix</span>
+      </button>
+    </nav>
+
+    <!-- Configurable Parameters Bar -->
+    <section id="settingsPanel" class="bg-slatecard/80 border border-slate-700/80 rounded-xl p-3.5 sm:p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <!-- Difficulty / Grid Size Selector -->
+      <div class="flex flex-col gap-1.5">
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Grid Size &amp; Targets</span>
+        <div class="grid grid-cols-4 gap-1.5" id="difficultyGroup">
+          <button type="button" data-diff="easy"
+            class="diff-btn px-2.5 py-1.5 rounded-lg text-xs font-medium border transition text-center bg-slate-800 border-slate-600 text-slate-300 hover:border-slate-500">
+            <div class="font-bold">Easy</div>
+            <div class="text-[10px] opacity-75">3×3 · 4</div>
+          </button>
+          <button type="button" data-diff="medium"
+            class="diff-btn px-2.5 py-1.5 rounded-lg text-xs font-medium border transition text-center bg-cyan-500/20 border-cyan-500/50 text-cyan-200">
+            <div class="font-bold">Medium</div>
+            <div class="text-[10px] opacity-80">4×4 · 6</div>
+          </button>
+          <button type="button" data-diff="hard"
+            class="diff-btn px-2.5 py-1.5 rounded-lg text-xs font-medium border transition text-center bg-slate-800 border-slate-600 text-slate-300 hover:border-slate-500">
+            <div class="font-bold">Hard</div>
+            <div class="text-[10px] opacity-75">5×5 · 9</div>
+          </button>
+          <button type="button" data-diff="master"
+            class="diff-btn px-2.5 py-1.5 rounded-lg text-xs font-medium border transition text-center bg-slate-800 border-slate-600 text-slate-300 hover:border-slate-500">
+            <div class="font-bold">Master</div>
+            <div class="text-[10px] opacity-75">6×6 · 12</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Flash Duration Controls -->
+      <div class="flex flex-col gap-1.5 flex-1 max-w-md">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Flash Exposure</span>
+          <span id="durationValueDisplay" class="text-xs font-mono font-bold text-cyan-300 bg-cyan-950/70 border border-cyan-500/30 px-2 py-0.5 rounded">3.0s</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1 shrink-0">
+            <button type="button" data-preset="1.5" class="preset-btn px-2 py-1 rounded text-xs font-mono font-medium bg-slate-800 border border-slate-600 text-slate-300 hover:border-slate-400 transition">1.5s</button>
+            <button type="button" data-preset="3.0" class="preset-btn px-2 py-1 rounded text-xs font-mono font-medium bg-cyan-500/20 border border-cyan-500/50 text-cyan-200 transition">3.0s</button>
+            <button type="button" data-preset="5.0" class="preset-btn px-2 py-1 rounded text-xs font-mono font-medium bg-slate-800 border border-slate-600 text-slate-300 hover:border-slate-400 transition">5.0s</button>
+          </div>
+          <input id="durationSlider" type="range" min="1.0" max="8.0" step="0.1" value="3.0" aria-label="Custom flash duration in seconds" class="w-full" />
+        </div>
+      </div>
+
+      <!-- Quadrant Guides Toggle -->
+      <div class="flex items-center justify-between lg:justify-end gap-3 pt-1 lg:pt-0 border-t lg:border-t-0 border-slate-700/70">
+        <div class="flex flex-col">
+          <span class="text-xs font-semibold text-slate-200">Quadrant Guides</span>
+          <span class="text-[11px] text-slate-400">4-cluster chunking aid</span>
+        </div>
+        <button id="btnQuadrantToggle" type="button" role="switch" aria-checked="true"
+          class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-cyan-500 transition-colors duration-200 ease-in-out focus:outline-none">
+          <span id="quadrantKnob" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Active Arena Card -->
+    <main class="bg-slatecard border border-slate-700/90 rounded-2xl p-4 sm:p-6 shadow-2xl flex flex-col items-center gap-4 relative">
+
+      <!-- Phase Banner & Live Millisecond Progress Timer -->
+      <div class="w-full max-w-md flex flex-col gap-2">
+        <div class="flex items-center justify-between text-xs sm:text-sm">
+          <div class="flex items-center gap-2">
+            <span id="phaseBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-700 text-slate-200">
+              Ready
+            </span>
+            <span id="phaseInstruction" class="text-slate-300 font-medium">
+              Press Start Flash to begin exposure
+            </span>
+          </div>
+          <span id="liveTimerText" class="font-mono font-bold text-sm text-cyan-400 tabular-nums">
+            3.00s
+          </span>
+        </div>
+
+        <!-- Smooth Progress Bar -->
+        <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-700/70">
+          <div id="flashProgressBar" class="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 w-full transition-none rounded-full"></div>
+        </div>
+      </div>
+
+      <!-- Interactive Memory Grid Wrapper -->
+      <div class="w-full max-w-[420px] mx-auto my-1">
+        <div id="gridWrapper" class="relative p-2.5 sm:p-3 rounded-2xl bg-slatebg border border-slate-700/80 shadow-inner">
+          <!-- Quadrant Chunking Crosshairs -->
+          <div id="quadrantOverlay" class="quadrant-overlay">
+            <div class="quadrant-line-v"></div>
+            <div class="quadrant-line-h"></div>
+            <div class="quadrant-center-dot"></div>
+          </div>
+
+          <!-- Dynamic Grid Container -->
+          <div id="memoryGrid" class="grid gap-2 sm:gap-2.5 w-full" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
+            <!-- Cells injected via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Mode-Specific Input Docks (Visible only during Recall Phase) -->
+
+      <!-- 1. Shapes & Colors Palette Dock -->
+      <div id="shapesDock" class="hidden w-full max-w-md flex-col items-center gap-2 animate-pop">
+        <div class="flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
+          <button type="button" data-shape="circle"
+            class="shape-tool-btn flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 border-2 border-cyan-400 text-xs font-semibold text-white shadow-md transition">
+            <span class="w-5 h-5 flex items-center justify-center" id="dockIconCircle"></span>
+            <span>Circle</span>
+            <kbd class="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono">1</kbd>
+          </button>
+
+          <button type="button" data-shape="triangle"
+            class="shape-tool-btn flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 border-2 border-slate-700 text-xs font-semibold text-slate-300 hover:border-slate-500 transition">
+            <span class="w-5 h-5 flex items-center justify-center" id="dockIconTriangle"></span>
+            <span>Triangle</span>
+            <kbd class="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono">2</kbd>
+          </button>
+
+          <button type="button" data-shape="star"
+            class="shape-tool-btn flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 border-2 border-slate-700 text-xs font-semibold text-slate-300 hover:border-slate-500 transition">
+            <span class="w-5 h-5 flex items-center justify-center" id="dockIconStar"></span>
+            <span>Star</span>
+            <kbd class="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono">3</kbd>
+          </button>
+
+          <button type="button" data-shape="hexagon"
+            class="shape-tool-btn flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 border-2 border-slate-700 text-xs font-semibold text-slate-300 hover:border-slate-500 transition">
+            <span class="w-5 h-5 flex items-center justify-center" id="dockIconHexagon"></span>
+            <span>Hexagon</span>
+            <kbd class="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono">4</kbd>
+          </button>
+
+          <button type="button" data-shape="eraser"
+            class="shape-tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 border-2 border-slate-700 text-xs font-semibold text-slate-300 hover:border-slate-500 transition"
+            title="Eraser (or Right-Click any cell)">
+            <svg class="w-4 h-4 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20 20H7L3 16c-.8-.8-.8-2 0-2.8l9.6-9.6c.8-.8 2-.8 2.8 0l5.2 5.2c.8.8.8 2 0 2.8L13 19" />
+            </svg>
+            <span>Erase</span>
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-400">Select a shape &amp; tap cells to stamp · Right-click or tap same shape to clear</p>
+      </div>
+
+      <!-- 2. Digit Matrix Numpad Dock -->
+      <div id="digitsDock" class="hidden w-full max-w-sm flex-col items-center gap-2 animate-pop">
+        <div class="grid grid-cols-6 gap-1.5 w-full">
+          <button type="button" data-digit="1" class="numpad-btn py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-600 font-mono font-bold text-base text-white transition">1</button>
+          <button type="button" data-digit="2" class="numpad-btn py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-600 font-mono font-bold text-base text-white transition">2</button>
+          <button type="button" data-digit="3" class="numpad-btn py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-600 font-mono font-bold text-base text-white transition">3</button>
+          <button type="button" data-digit="4" class="numpad-btn py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-600 font-mono font-bold text-base text-white transition">4</button>
+          <button type="button" data-digit="5" class="numpad-btn py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-600 font-mono font-bold text-base text-white transition">5</button>
+          <button type="button" data-digit="clear" class="numpad-btn py-2.5 rounded-lg bg-rose-950/60 hover:bg-rose-900/70 active:scale-95 border border-rose-700/60 font-sans font-semibold text-xs text-rose-300 transition">Del</button>
+
+          <button type="button" data-digit="6" class="numpad-btn py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-600 font-mono font-bold text-base text-white transition">6</button>
+          <button type="button" data-digit="7" class="numpad-btn py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-600 font-mono font-bold text-base text-white transition">7</button>
+          <button type="button" data-digit="8" class="numpad-btn py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-600 font-mono font-bold text-base text-white transition">8</button>
+          <button type="button" data-digit="9" class="numpad-btn py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-600 font-mono font-bold text-base text-white transition">9</button>
+          <button type="button" data-digit="0" class="numpad-btn py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-600 font-mono font-bold text-base text-white transition">0</button>
+          <button type="button" id="btnNextCell" class="py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-600 font-sans font-semibold text-xs text-cyan-300 transition">Next →</button>
+        </div>
+        <p class="text-[11px] text-slate-400">Tap any cell &amp; type 0–9 (or use keyboard digits)</p>
+      </div>
+
+      <!-- Results & Blind-Spot Analysis Card (Visible during Review Phase) -->
+      <div id="resultsPanel" class="hidden w-full max-w-md bg-slatebg/95 border border-slate-700 rounded-xl p-3.5 sm:p-4 flex flex-col gap-3 animate-pop">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+          <div>
+            <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Round Accuracy</span>
+            <div class="flex items-baseline gap-2">
+              <span id="resultScorePct" class="text-2xl font-extrabold font-mono text-emerald-400">100%</span>
+              <span id="resultFraction" class="text-xs font-mono text-slate-400">(6/6 exact)</span>
+            </div>
+          </div>
+
+          <!-- Legend Pills -->
+          <div class="flex flex-col gap-1 text-[11px]">
+            <div class="flex items-center gap-1.5 text-emerald-300">
+              <span class="w-2.5 h-2.5 rounded-sm bg-emerald-500/40 border border-emerald-400"></span>
+              <span>Exact Match (<span id="countMatch">0</span>)</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-rose-300">
+              <span class="w-2.5 h-2.5 rounded-sm bg-rose-500/40 border border-rose-400"></span>
+              <span>False Positive (<span id="countFalse">0</span>)</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-amber-300">
+              <span class="w-2.5 h-2.5 rounded-sm border border-dashed border-amber-400"></span>
+              <span>Missed Target (<span id="countMissed">0</span>)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Blind-Spot Diagnostic Insight -->
+        <div class="flex items-start gap-2.5 bg-slatecard/80 border border-slate-700/70 rounded-lg p-2.5">
+          <div id="diagnosticIcon" class="mt-0.5 text-cyan-400 shrink-0">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <path stroke-linecap="round" d="M12 16v-4M12 8h.01" />
+            </svg>
+          </div>
+          <div class="text-xs leading-relaxed">
+            <div id="diagnosticTitle" class="font-semibold text-slate-100">Blind-Spot Analysis</div>
+            <p id="diagnosticText" class="text-slate-400 mt-0.5">Complete a round to inspect peripheral vs. center recall accuracy.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Primary Action Buttons -->
+      <div class="w-full max-w-md flex items-center justify-center gap-3 pt-1">
+        <!-- Idle State Button -->
+        <button id="btnStartFlash" type="button"
+          class="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 active:scale-[0.98] text-slate-950 font-bold text-sm sm:text-base shadow-lg shadow-cyan-500/20 transition flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          <span>Start Flash</span>
+          <kbd class="hidden sm:inline-block text-[11px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-950/20 text-slate-950 ml-1">Space</kbd>
+        </button>
+
+        <!-- Recall State Buttons -->
+        <button id="btnClearGrid" type="button"
+          class="hidden py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-[0.98] border border-slate-600 text-slate-200 font-semibold text-sm transition">
+          Clear Grid
+        </button>
+
+        <button id="btnSubmitRecall" type="button"
+          class="hidden flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-[0.98] text-slate-950 font-bold text-sm sm:text-base shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          <span id="submitBtnLabel">Submit Recall</span>
+          <kbd class="hidden sm:inline-block text-[11px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-950/20 text-slate-950 ml-1">Enter</kbd>
+        </button>
+
+        <!-- Review State Button -->
+        <button id="btnNextRound" type="button"
+          class="hidden flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 active:scale-[0.98] text-slate-950 font-bold text-sm sm:text-base shadow-lg shadow-cyan-500/20 transition flex items-center justify-center gap-2">
+          <span>Next Round</span>
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
+          <kbd class="hidden sm:inline-block text-[11px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-950/20 text-slate-950 ml-1">Space</kbd>
+        </button>
+      </div>
+
+      <!-- Cognitive Encoding Tip Footer -->
+      <p id="encodingTip" class="text-xs text-slate-400 text-center max-w-md leading-relaxed">
+        <span class="text-cyan-400 font-semibold">Tip:</span> Anchor your eyes on the center dot and group lit tiles into geometric clusters across the 4 quadrants.
+      </p>
+    </main>
+  </div>
+
+  <script>
+    /**
+     * At-a-Glance Visual Memory Trainer
+     * Self-contained cognitive training engine supporting:
+     * 1. Spatial Grid
+     * 2. Shapes & Colors
+     * 3. Number Sequence (Chimp Test)
+     * 4. Digit Matrix
+     */
+
+    // =========================================================================
+    // 1. CONFIGURATION & CONSTANTS
+    // =========================================================================
+
+    const DIFFICULTIES = {
+      easy:   { label: 'Easy',   size: 3, targets: 4,  next: 'medium' },
+      medium: { label: 'Medium', size: 4, targets: 6,  next: 'hard' },
+      hard:   { label: 'Hard',   size: 5, targets: 9,  next: 'master' },
+      master: { label: 'Master', size: 6, targets: 12, next: 'master' }
+    };
+
+    const SHAPE_TYPES = [
+      { id: 'circle',   name: 'Crimson Circle',        color: '#f43f5e' },
+      { id: 'triangle', name: 'Electric Blue Triangle', color: '#38bdf8' },
+      { id: 'star',     name: 'Amber Star',             color: '#fbbf24' },
+      { id: 'hexagon',  name: 'Emerald Hexagon',        color: '#34d399' }
+    ];
+
+    const MODE_TIPS = {
+      spatial: 'Anchor your gaze on the center crosshair and group lit tiles into 2–3 geometric shapes instead of counting one by one.',
+      shapes:  'Silently tag shape + quadrant pairs during the flash (e.g., "Blue triangle top-left, amber star bottom-right").',
+      chimp:   'Trace a continuous visual path from 1 → 2 → 3 during exposure so your motor memory remembers the trajectory.',
+      digits:  'Chunk digits horizontally or by quadrant into 2-digit numbers (e.g., "4-7" as forty-seven) to double retention.'
+    };
+
+    // =========================================================================
+    // 2. APPLICATION STATE
+    // =========================================================================
+
+    const state = {
+      mode: 'spatial',          // 'spatial' | 'shapes' | 'chimp' | 'digits'
+      difficulty: 'medium',     // 'easy' | 'medium' | 'hard' | 'master'
+      flashDuration: 3.0,       // seconds (1.0 - 8.0)
+      quadrantGuides: true,
+      autoAdvance: false,
+      soundEnabled: true,
+
+      phase: 'idle',            // 'idle' | 'flashing' | 'recall' | 'review'
+      animationFrameId: null,
+      flashStartTime: 0,
+
+      // Round Data Structures
+      // targetMap: Map<cellIndex, value>
+      //   spatial -> true
+      //   shapes  -> 'circle' | 'triangle' | 'star' | 'hexagon'
+      //   chimp   -> 1..N
+      //   digits  -> 0..9
+      targetMap: new Map(),
+
+      // userMap: Map<cellIndex, value>
+      userMap: new Map(),
+
+      // Mode-specific recall helpers
+      selectedShapeTool: 'circle',
+      chimpNextExpected: 1,
+      chimpFailedCell: null,
+      focusedDigitCell: null,
+
+      // Session Telemetry
+      stats: {
+        rounds: 0,
+        totalAccuracySum: 0,
+        streak: 0,
+        bestScore: null
+      }
+    };
+
+    // =========================================================================
+    // 3. SYNTHESIZED WEB AUDIO FEEDBACK (ZERO EXTERNAL DEPENDENCIES)
+    // =========================================================================
+
+    let audioCtx = null;
+
+    function playTone(freq, type = 'sine', duration = 0.08, gainVal = 0.06) {
+      if (!state.soundEnabled) return;
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (err) {
+        // Ignore audio errors if blocked by browser autoplay policy
+      }
+    }
+
+    const sfx = {
+      flashStart: () => playTone(520, 'sine', 0.12, 0.07),
+      flashEnd:   () => playTone(380, 'triangle', 0.1, 0.05),
+      tap:        () => playTone(600, 'sine', 0.05, 0.04),
+      success:    () => {
+        playTone(587.33, 'sine', 0.1, 0.06);
+        setTimeout(() => playTone(880, 'sine', 0.18, 0.07), 85);
+      },
+      error:      () => playTone(210, 'sawtooth', 0.16, 0.05)
+    };
+
+    // =========================================================================
+    // 4. SVG SHAPE GENERATOR
+    // =========================================================================
+
+    function getShapeSVG(shapeId, isGhost = false) {
+      const opacity = isGhost ? '0.5' : '1';
+      const strokeDash = isGhost ? 'stroke-dasharray="4 3"' : '';
+      switch (shapeId) {
+        case 'circle':
+          return `
+            <svg viewBox="0 0 48 48" class="w-3/5 h-3/5 pointer-events-none" style="opacity:${opacity}">
+              <circle cx="24" cy="24" r="16"
+                fill="${isGhost ? 'none' : '#f43f5e'}"
+                stroke="#fda4af" stroke-width="2.5" ${strokeDash} />
+            </svg>`;
+        case 'triangle':
+          return `
+            <svg viewBox="0 0 48 48" class="w-3/5 h-3/5 pointer-events-none" style="opacity:${opacity}">
+              <polygon points="24,7 41,38 7,38"
+                fill="${isGhost ? 'none' : '#38bdf8'}"
+                stroke="#bae6fd" stroke-width="2.5" stroke-linejoin="round" ${strokeDash} />
+            </svg>`;
+        case 'star':
+          return `
+            <svg viewBox="0 0 48 48" class="w-2/3 h-2/3 pointer-events-none" style="opacity:${opacity}">
+              <polygon points="24,5 29.5,17.5 43,19 32.8,28 35.8,41.5 24,34.5 12.2,41.5 15.2,28 5,19 18.5,17.5"
+                fill="${isGhost ? 'none' : '#fbbf24'}"
+                stroke="#fef08a" stroke-width="2.2" stroke-linejoin="round" ${strokeDash} />
+            </svg>`;
+        case 'hexagon':
+          return `
+            <svg viewBox="0 0 48 48" class="w-3/5 h-3/5 pointer-events-none" style="opacity:${opacity}">
+              <polygon points="24,6 39.5,15 39.5,33 24,42 8.5,33 8.5,15"
+                fill="${isGhost ? 'none' : '#34d399'}"
+                stroke="#a7f3d0" stroke-width="2.5" stroke-linejoin="round" ${strokeDash} />
+            </svg>`;
+        default:
+          return '';
+      }
+    }
+
+    function getSmallShapeSVG(shapeId) {
+      switch (shapeId) {
+        case 'circle':
+          return `<svg viewBox="0 0 24 24" class="w-4 h-4"><circle cx="12" cy="12" r="8" fill="#f43f5e" /></svg>`;
+        case 'triangle':
+          return `<svg viewBox="0 0 24 24" class="w-4 h-4"><polygon points="12,3 21,19 3,19" fill="#38bdf8" stroke-linejoin="round" /></svg>`;
+        case 'star':
+          return `<svg viewBox="0 0 24 24" class="w-4 h-4"><polygon points="12,2 15,8.5 22,9.5 17,14.2 18.2,21 12,17.6 5.8,21 7,14.2 2,9.5 9,8.5" fill="#fbbf24" /></svg>`;
+        case 'hexagon':
+          return `<svg viewBox="0 0 24 24" class="w-4 h-4"><polygon points="12,2.5 20,7.2 20,16.8 12,21.5 4,16.8 4,7.2" fill="#34d399" /></svg>`;
+        default:
+          return '';
+      }
+    }
+
+    // =========================================================================
+    // 5. DOM REFERENCES
+    // =========================================================================
+
+    const dom = {
+      modeTabs: document.querySelectorAll('.mode-tab'),
+      diffBtns: document.querySelectorAll('.diff-btn'),
+      presetBtns: document.querySelectorAll('.preset-btn'),
+      durationSlider: document.getElementById('durationSlider'),
+      durationDisplay: document.getElementById('durationValueDisplay'),
+      btnQuadrantToggle: document.getElementById('btnQuadrantToggle'),
+      quadrantKnob: document.getElementById('quadrantKnob'),
+      quadrantOverlay: document.getElementById('quadrantOverlay'),
+      btnAutoAdvance: document.getElementById('btnAutoAdvance'),
+      autoAdvanceDot: document.getElementById('autoAdvanceDot'),
+      btnSoundToggle: document.getElementById('btnSoundToggle'),
+      iconSoundOn: document.getElementById('iconSoundOn'),
+      iconSoundOff: document.getElementById('iconSoundOff'),
+
+      statRounds: document.getElementById('statRounds'),
+      statAccuracy: document.getElementById('statAccuracy'),
+      statStreak: document.getElementById('statStreak'),
+      statBest: document.getElementById('statBest'),
+
+      phaseBadge: document.getElementById('phaseBadge'),
+      phaseInstruction: document.getElementById('phaseInstruction'),
+      liveTimerText: document.getElementById('liveTimerText'),
+      flashProgressBar: document.getElementById('flashProgressBar'),
+      memoryGrid: document.getElementById('memoryGrid'),
+
+      shapesDock: document.getElementById('shapesDock'),
+      shapeToolBtns: document.querySelectorAll('.shape-tool-btn'),
+      digitsDock: document.getElementById('digitsDock'),
+      numpadBtns: document.querySelectorAll('.numpad-btn'),
+      btnNextCell: document.getElementById('btnNextCell'),
+
+      resultsPanel: document.getElementById('resultsPanel'),
+      resultScorePct: document.getElementById('resultScorePct'),
+      resultFraction: document.getElementById('resultFraction'),
+      countMatch: document.getElementById('countMatch'),
+      countFalse: document.getElementById('countFalse'),
+      countMissed: document.getElementById('countMissed'),
+      diagnosticTitle: document.getElementById('diagnosticTitle'),
+      diagnosticText: document.getElementById('diagnosticText'),
+      diagnosticIcon: document.getElementById('diagnosticIcon'),
+
+      btnStartFlash: document.getElementById('btnStartFlash'),
+      btnClearGrid: document.getElementById('btnClearGrid'),
+      btnSubmitRecall: document.getElementById('btnSubmitRecall'),
+      submitBtnLabel: document.getElementById('submitBtnLabel'),
+      btnNextRound: document.getElementById('btnNextRound'),
+      encodingTip: document.getElementById('encodingTip')
+    };
+
+    // Populate dock shape icons
+    document.getElementById('dockIconCircle').innerHTML = getSmallShapeSVG('circle');
+    document.getElementById('dockIconTriangle').innerHTML = getSmallShapeSVG('triangle');
+    document.getElementById('dockIconStar').innerHTML = getSmallShapeSVG('star');
+    document.getElementById('dockIconHexagon').innerHTML = getSmallShapeSVG('hexagon');
+
+    // =========================================================================
+    // 6. PATTERN GENERATION & GRID RENDERING
+    // =========================================================================
+
+    function pickRandomIndices(totalCells, count) {
+      const pool = Array.from({ length: totalCells }, (_, i) => i);
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      return pool.slice(0, count);
+    }
+
+    function generateTargets() {
+      const { size, targets } = DIFFICULTIES[state.difficulty];
+      const totalCells = size * size;
+      const chosenIndices = pickRandomIndices(totalCells, targets);
+
+      state.targetMap.clear();
+      state.userMap.clear();
+      state.chimpNextExpected = 1;
+      state.chimpFailedCell = null;
+      state.focusedDigitCell = null;
+
+      if (state.mode === 'spatial') {
+        chosenIndices.forEach(idx => state.targetMap.set(idx, true));
+      } else if (state.mode === 'shapes') {
+        // Balance shape distribution so the grid looks crisp and varied
+        const shuffledShapes = [...SHAPE_TYPES].sort(() => Math.random() - 0.5);
+        chosenIndices.forEach((idx, i) => {
+          const shapeObj = shuffledShapes[i % shuffledShapes.length];
+          state.targetMap.set(idx, shapeObj.id);
+        });
+      } else if (state.mode === 'chimp') {
+        chosenIndices.forEach((idx, i) => {
+          state.targetMap.set(idx, i + 1);
+        });
+      } else if (state.mode === 'digits') {
+        chosenIndices.forEach(idx => {
+          const digit = Math.floor(Math.random() * 10);
+          state.targetMap.set(idx, digit);
+        });
+      }
+    }
+
+    function renderGrid() {
+      const { size } = DIFFICULTIES[state.difficulty];
+      const totalCells = size * size;
+
+      dom.memoryGrid.style.gridTemplateColumns = `repeat(${size}, minmax(0, 1fr))`;
+      dom.memoryGrid.innerHTML = '';
+
+      // Dynamic font scale based on grid size
+      const fontSizeClass = size <= 3 ? 'text-2xl sm:text-3xl'
+                          : size === 4 ? 'text-xl sm:text-2xl'
+                          : size === 5 ? 'text-lg sm:text-xl'
+                          : 'text-base sm:text-lg';
+
+      for (let idx = 0; idx < totalCells; idx++) {
+        const cell = document.createElement('div');
+        cell.className = `grid-cell font-mono font-bold ${fontSizeClass}`;
+        cell.dataset.index = idx;
+
+        if (state.phase === 'idle') {
+          cell.classList.add('cell-locked');
+        } else if (state.phase === 'flashing') {
+          cell.classList.add('cell-locked');
+          renderFlashingCell(cell, idx);
+        } else if (state.phase === 'recall') {
+          renderRecallCell(cell, idx);
+        } else if (state.phase === 'review') {
+          cell.classList.add('cell-locked');
+          renderReviewCell(cell, idx);
+        }
+
+        // Interaction handlers during Recall phase
+        if (state.phase === 'recall') {
+          cell.addEventListener('click', () => handleCellClick(idx));
+          cell.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            handleCellRightClick(idx);
+          });
+        }
+
+        dom.memoryGrid.appendChild(cell);
+      }
+    }
+
+    function renderFlashingCell(cell, idx) {
+      if (!state.targetMap.has(idx)) return;
+      const val = state.targetMap.get(idx);
+
+      if (state.mode === 'spatial') {
+        cell.classList.add('spatial-lit', 'animate-pop');
+      } else if (state.mode === 'shapes') {
+        cell.innerHTML = `<div class="w-full h-full flex items-center justify-center animate-pop">${getShapeSVG(val, false)}</div>`;
+      } else if (state.mode === 'chimp') {
+        cell.classList.add('bg-slate-800/90', 'border-cyan-400/70', 'text-white', 'animate-pop');
+        cell.textContent = val;
+      } else if (state.mode === 'digits') {
+        cell.classList.add('bg-slate-800/90', 'border-amber-400/70', 'text-amber-300', 'animate-pop');
+        cell.textContent = val;
+      }
+    }
+
+    function renderRecallCell(cell, idx) {
+      if (state.mode === 'spatial') {
+        if (state.userMap.has(idx)) {
+          cell.classList.add('spatial-selected');
+        }
+      } else if (state.mode === 'shapes') {
+        if (state.userMap.has(idx)) {
+          const shapeId = state.userMap.get(idx);
+          cell.innerHTML = `<div class="w-full h-full flex items-center justify-center animate-pop">${getShapeSVG(shapeId, false)}</div>`;
+        }
+      } else if (state.mode === 'chimp') {
+        if (state.userMap.has(idx)) {
+          // Correctly uncovered in sequence
+          cell.classList.add('review-match', 'text-emerald-300', 'cell-locked');
+          cell.textContent = state.userMap.get(idx);
+        } else if (state.targetMap.has(idx)) {
+          // Covered target tile waiting to be clicked in order
+          cell.classList.add('chimp-covered');
+          cell.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-500/60"></span>`;
+        }
+      } else if (state.mode === 'digits') {
+        if (state.focusedDigitCell === idx) {
+          cell.classList.add('cell-focused');
+        }
+        if (state.userMap.has(idx)) {
+          cell.classList.add('text-cyan-300', 'bg-slate-800/80');
+          cell.textContent = state.userMap.get(idx);
+        }
+      }
+    }
+
+    function renderReviewCell(cell, idx) {
+      const hasTarget = state.targetMap.has(idx);
+      const hasUser = state.userMap.has(idx);
+      const targetVal = state.targetMap.get(idx);
+      const userVal = state.userMap.get(idx);
+
+      // Corner badge helper
+      const badge = (symbol, colorClass) =>
+        `<span class="absolute top-1 right-1.5 text-[10px] sm:text-xs font-sans font-extrabold ${colorClass}">${symbol}</span>`;
+
+      if (state.mode === 'spatial') {
+        if (hasTarget && hasUser) {
+          cell.classList.add('review-match');
+          cell.innerHTML = `${badge('✓', 'text-emerald-400')}<div class="w-4 h-4 rounded-full bg-emerald-400 shadow"></div>`;
+        } else if (!hasTarget && hasUser) {
+          cell.classList.add('review-false-positive');
+          cell.innerHTML = `${badge('✕', 'text-rose-400')}<span class="text-rose-400 text-base">✕</span>`;
+        } else if (hasTarget && !hasUser) {
+          cell.classList.add('review-missed');
+          cell.innerHTML = `<div class="w-4 h-4 rounded-full border-2 border-dashed border-amber-400/70"></div>`;
+        }
+      } else if (state.mode === 'shapes') {
+        if (hasTarget && hasUser && targetVal === userVal) {
+          cell.classList.add('review-match');
+          cell.innerHTML = `${badge('✓', 'text-emerald-400')}${getShapeSVG(targetVal, false)}`;
+        } else if (hasUser && (!hasTarget || targetVal !== userVal)) {
+          cell.classList.add('review-false-positive');
+          const ghostHint = hasTarget
+            ? `<div class="absolute bottom-0.5 left-1 w-4 h-4 opacity-85" title="Expected shape">${getSmallShapeSVG(targetVal)}</div>`
+            : '';
+          cell.innerHTML = `${badge('✕', 'text-rose-400')}${getShapeSVG(userVal, false)}${ghostHint}`;
+        } else if (hasTarget && !hasUser) {
+          cell.classList.add('review-missed');
+          cell.innerHTML = getShapeSVG(targetVal, true);
+        }
+      } else if (state.mode === 'chimp') {
+        if (hasTarget && hasUser) {
+          cell.classList.add('review-match', 'text-emerald-300');
+          cell.innerHTML = `${badge('✓', 'text-emerald-400')}<span>${targetVal}</span>`;
+        } else if (state.chimpFailedCell === idx && !hasTarget) {
+          cell.classList.add('review-false-positive', 'text-rose-400');
+          cell.innerHTML = `${badge('✕', 'text-rose-400')}<span>✕</span>`;
+        } else if (hasTarget && !hasUser) {
+          const isClickedWrongOrder = state.chimpFailedCell === idx;
+          cell.classList.add(isClickedWrongOrder ? 'review-false-positive' : 'review-missed', 'text-amber-300/80');
+          cell.innerHTML = `${isClickedWrongOrder ? badge('✕', 'text-rose-400') : ''}<span class="opacity-80">${targetVal}</span>`;
+        }
+      } else if (state.mode === 'digits') {
+        if (hasTarget && hasUser && targetVal === userVal) {
+          cell.classList.add('review-match', 'text-emerald-300');
+          cell.innerHTML = `${badge('✓', 'text-emerald-400')}<span>${targetVal}</span>`;
+        } else if (hasUser && (!hasTarget || targetVal !== userVal)) {
+          cell.classList.add('review-false-positive', 'text-rose-300');
+          const expectedHint = hasTarget
+            ? `<span class="absolute bottom-0.5 left-1.5 text-[10px] font-mono text-amber-300">${targetVal}</span>`
+            : '';
+          cell.innerHTML = `${badge('✕', 'text-rose-400')}<span>${userVal}</span>${expectedHint}`;
+        } else if (hasTarget && !hasUser) {
+          cell.classList.add('review-missed', 'text-amber-300/65');
+          cell.innerHTML = `<span>${targetVal}</span>`;
+        }
+      }
+    }
+
+    // =========================================================================
+    // 7. USER INTERACTIONS DURING RECALL
+    // =========================================================================
+
+    function handleCellClick(idx) {
+      if (state.phase !== 'recall') return;
+
+      if (state.mode === 'spatial') {
+        sfx.tap();
+        if (state.userMap.has(idx)) {
+          state.userMap.delete(idx);
+        } else {
+          state.userMap.set(idx, true);
+        }
+        renderGrid();
+      } else if (state.mode === 'shapes') {
+        sfx.tap();
+        if (state.selectedShapeTool === 'eraser') {
+          state.userMap.delete(idx);
+        } else if (state.userMap.get(idx) === state.selectedShapeTool) {
+          // Clicking same shape toggles it off for rapid correction
+          state.userMap.delete(idx);
+        } else {
+          state.userMap.set(idx, state.selectedShapeTool);
+        }
+        renderGrid();
+      } else if (state.mode === 'chimp') {
+        // Ignore already uncovered tiles
+        if (state.userMap.has(idx)) return;
+
+        const targetNum = state.targetMap.get(idx);
+        if (targetNum === state.chimpNextExpected) {
+          sfx.tap();
+          state.userMap.set(idx, targetNum);
+          state.chimpNextExpected++;
+          const totalTargets = DIFFICULTIES[state.difficulty].targets;
+          if (state.chimpNextExpected > totalTargets) {
+            // Completed full sequence!
+            evaluateRecall();
+          } else {
+            dom.phaseInstruction.textContent = `Tap number ${state.chimpNextExpected} of ${totalTargets}`;
+            renderGrid();
+          }
+        } else {
+          // Wrong tile clicked in sequence -> end round immediately & analyze
+          state.chimpFailedCell = idx;
+          evaluateRecall();
+        }
+      } else if (state.mode === 'digits') {
+        sfx.tap();
+        state.focusedDigitCell = idx;
+        renderGrid();
+      }
+    }
+
+    function handleCellRightClick(idx) {
+      if (state.phase !== 'recall') return;
+      if (state.mode === 'spatial' || state.mode === 'shapes' || state.mode === 'digits') {
+        if (state.userMap.has(idx)) {
+          sfx.tap();
+          state.userMap.delete(idx);
+          renderGrid();
+        }
+      }
+    }
+
+    function inputDigitToFocusedCell(digitOrClear) {
+      if (state.phase !== 'recall' || state.mode !== 'digits') return;
+      const { size } = DIFFICULTIES[state.difficulty];
+      const totalCells = size * size;
+
+      if (state.focusedDigitCell === null) {
+        state.focusedDigitCell = 0;
+      }
+
+      sfx.tap();
+      if (digitOrClear === 'clear') {
+        state.userMap.delete(state.focusedDigitCell);
+      } else {
+        state.userMap.set(state.focusedDigitCell, Number(digitOrClear));
+        // Advance focus to next cell
+        state.focusedDigitCell = (state.focusedDigitCell + 1) % totalCells;
+      }
+      renderGrid();
+    }
+
+    // =========================================================================
+    // 8. GAMEPLAY STATE MACHINE (IDLE -> FLASHING -> RECALL -> REVIEW)
+    // =========================================================================
+
+    function setSettingsDisabled(disabled) {
+      dom.modeTabs.forEach(btn => btn.disabled = disabled);
+      dom.diffBtns.forEach(btn => btn.disabled = disabled);
+      dom.presetBtns.forEach(btn => btn.disabled = disabled);
+      dom.durationSlider.disabled = disabled;
+    }
+
+    function updatePhaseUI() {
+      // Hide all phase-specific action buttons & docks first
+      dom.btnStartFlash.classList.add('hidden');
+      dom.btnClearGrid.classList.add('hidden');
+      dom.btnSubmitRecall.classList.add('hidden');
+      dom.btnNextRound.classList.add('hidden');
+      dom.shapesDock.classList.add('hidden');
+      dom.digitsDock.classList.add('hidden');
+      dom.resultsPanel.classList.add('hidden');
+
+      if (state.phase === 'idle') {
+        setSettingsDisabled(false);
+        dom.phaseBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-700 text-slate-200';
+        dom.phaseBadge.textContent = 'Ready';
+        dom.phaseInstruction.textContent = 'Press Start Flash to begin exposure';
+        dom.liveTimerText.textContent = `${state.flashDuration.toFixed(2)}s`;
+        dom.flashProgressBar.style.width = '100%';
+        dom.flashProgressBar.className = 'h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full';
+        dom.btnStartFlash.classList.remove('hidden');
+      } else if (state.phase === 'flashing') {
+        setSettingsDisabled(true);
+        dom.phaseBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse';
+        dom.phaseBadge.textContent = 'Memorize';
+        dom.phaseInstruction.textContent = 'Capture the pattern at a glance...';
+        dom.flashProgressBar.className = 'h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full';
+      } else if (state.phase === 'recall') {
+        setSettingsDisabled(true);
+        dom.phaseBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40';
+        dom.phaseBadge.textContent = 'Recall';
+        dom.liveTimerText.textContent = '0.00s';
+        dom.flashProgressBar.style.width = '0%';
+
+        if (state.mode === 'spatial') {
+          dom.phaseInstruction.textContent = 'Click the tiles that lit up';
+          dom.btnClearGrid.classList.remove('hidden');
+          dom.btnSubmitRecall.classList.remove('hidden');
+          dom.submitBtnLabel.textContent = 'Submit Recall';
+        } else if (state.mode === 'shapes') {
+          dom.phaseInstruction.textContent = 'Stamp the colored shapes into place';
+          dom.shapesDock.classList.remove('hidden');
+          dom.shapesDock.classList.add('flex');
+          dom.btnClearGrid.classList.remove('hidden');
+          dom.btnSubmitRecall.classList.remove('hidden');
+          dom.submitBtnLabel.textContent = 'Submit Recall';
+        } else if (state.mode === 'chimp') {
+          const totalTargets = DIFFICULTIES[state.difficulty].targets;
+          dom.phaseInstruction.textContent = `Tap number 1 of ${totalTargets}`;
+          dom.btnSubmitRecall.classList.remove('hidden');
+          dom.submitBtnLabel.textContent = 'Give Up & Reveal';
+        } else if (state.mode === 'digits') {
+          dom.phaseInstruction.textContent = 'Fill in the flashed digits';
+          dom.digitsDock.classList.remove('hidden');
+          dom.digitsDock.classList.add('flex');
+          dom.btnClearGrid.classList.remove('hidden');
+          dom.btnSubmitRecall.classList.remove('hidden');
+          dom.submitBtnLabel.textContent = 'Submit Recall';
+          // Auto-focus top-left cell for instant keyboard typing
+          if (state.focusedDigitCell === null) state.focusedDigitCell = 0;
+        }
+      } else if (state.phase === 'review') {
+        setSettingsDisabled(false);
+        dom.phaseBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+        dom.phaseBadge.textContent = 'Analysis';
+        dom.phaseInstruction.textContent = 'Compare your recall against the target pattern';
+        dom.resultsPanel.classList.remove('hidden');
+        dom.btnNextRound.classList.remove('hidden');
+      }
+    }
+
+    function startFlashRound() {
+      if (state.animationFrameId) {
+        cancelAnimationFrame(state.animationFrameId);
+      }
+
+      generateTargets();
+      state.phase = 'flashing';
+      state.flashStartTime = performance.now();
+      sfx.flashStart();
+
+      updatePhaseUI();
+      renderGrid();
+
+      const durationMs = state.flashDuration * 1000;
+
+      function tick(now) {
+        if (state.phase !== 'flashing') return;
+        const elapsed = now - state.flashStartTime;
+        const remaining = Math.max(0, durationMs - elapsed);
+        const pct = (remaining / durationMs) * 100;
+
+        dom.liveTimerText.textContent = `${(remaining / 1000).toFixed(2)}s`;
+        dom.flashProgressBar.style.width = `${pct}%`;
+
+        if (remaining <= 0) {
+          beginRecallPhase();
+        } else {
+          state.animationFrameId = requestAnimationFrame(tick);
+        }
+      }
+
+      state.animationFrameId = requestAnimationFrame(tick);
+    }
+
+    function beginRecallPhase() {
+      state.phase = 'recall';
+      sfx.flashEnd();
+      updatePhaseUI();
+      renderGrid();
+    }
+
+    function clearRecallGrid() {
+      if (state.phase !== 'recall') return;
+      sfx.tap();
+      state.userMap.clear();
+      renderGrid();
+    }
+
+    // =========================================================================
+    // 9. SCORING & BLIND-SPOT ANALYSIS ENGINE
+    // =========================================================================
+
+    function evaluateRecall() {
+      if (state.phase !== 'recall') return;
+
+      const { size, targets } = DIFFICULTIES[state.difficulty];
+      let exactMatches = 0;
+      let falsePositives = 0;
+      let missedTargets = 0;
+
+      const missedIndices = [];
+
+      // Check all target cells
+      state.targetMap.forEach((targetVal, idx) => {
+        if (state.userMap.has(idx) && state.userMap.get(idx) === targetVal) {
+          exactMatches++;
+        } else {
+          missedTargets++;
+          missedIndices.push(idx);
+        }
+      });
+
+      // Check user entries that didn't match a target
+      state.userMap.forEach((userVal, idx) => {
+        if (!state.targetMap.has(idx) || state.targetMap.get(idx) !== userVal) {
+          falsePositives++;
+        }
+      });
+
+      // Include Chimp wrong-cell click as false positive if it wasn't already counted
+      if (state.mode === 'chimp' && state.chimpFailedCell !== null && !state.targetMap.has(state.chimpFailedCell)) {
+        falsePositives++;
+      }
+
+      // Compute clean percentage score penalizing false positives proportionally
+      const rawScore = Math.max(0, exactMatches - falsePositives * 0.5);
+      const accuracyPct = Math.round((rawScore / targets) * 100);
+
+      // Update Session Stats
+      state.stats.rounds++;
+      state.stats.totalAccuracySum += accuracyPct;
+      if (accuracyPct >= 80) {
+        state.stats.streak++;
+      } else {
+        state.stats.streak = 0;
+      }
+      if (state.stats.bestScore === null || accuracyPct > state.stats.bestScore) {
+        state.stats.bestScore = accuracyPct;
+      }
+
+      updateStatsUI();
+
+      // Populate Results Summary
+      dom.resultScorePct.textContent = `${accuracyPct}%`;
+      dom.resultScorePct.className = `text-2xl font-extrabold font-mono ${
+        accuracyPct === 100 ? 'text-emerald-400' : accuracyPct >= 75 ? 'text-cyan-400' : 'text-amber-400'
+      }`;
+      dom.resultFraction.textContent = `(${exactMatches}/${targets} exact)`;
+      dom.countMatch.textContent = exactMatches;
+      dom.countFalse.textContent = falsePositives;
+      dom.countMissed.textContent = missedTargets;
+
+      // Run Spatial Blind-Spot Diagnostic
+      generateBlindSpotInsight(size, exactMatches, targets, falsePositives, missedIndices);
+
+      if (accuracyPct >= 80) {
+        sfx.success();
+      } else {
+        sfx.error();
+      }
+
+      // Handle Auto-Advance Difficulty on 100% accuracy
+      if (state.autoAdvance && accuracyPct === 100 && state.difficulty !== 'master') {
+        const nextDiff = DIFFICULTIES[state.difficulty].next;
+        setDifficulty(nextDiff, false);
+        dom.diagnosticText.textContent += ` Auto-advanced to ${DIFFICULTIES[nextDiff].label} (${DIFFICULTIES[nextDiff].size}×${DIFFICULTIES[nextDiff].size})!`;
+      }
+
+      state.phase = 'review';
+      updatePhaseUI();
+      renderGrid();
+    }
+
+    function generateBlindSpotInsight(size, exactMatches, targets, falsePositives, missedIndices) {
+      if (exactMatches === targets && falsePositives === 0) {
+        dom.diagnosticTitle.textContent = 'Flawless At-a-Glance Capture!';
+        dom.diagnosticText.textContent = 'Zero blind spots detected across center and perimeter. Try lowering exposure time by 0.5s or increasing grid size.';
+        dom.diagnosticIcon.className = 'mt-0.5 text-emerald-400 shrink-0';
+        return;
+      }
+
+      if (missedIndices.length === 0 && falsePositives > 0) {
+        dom.diagnosticTitle.textContent = 'Over-Attribution Detected';
+        dom.diagnosticText.textContent = `You captured all ${targets} true targets, but added ${falsePositives} extra phantom item${falsePositives > 1 ? 's' : ''}. Trust your initial snapshot without guessing.`;
+        dom.diagnosticIcon.className = 'mt-0.5 text-rose-400 shrink-0';
+        return;
+      }
+
+      // Analyze spatial distribution of missed targets (Perimeter vs. Center & Left vs. Right)
+      let edgeMisses = 0;
+      let leftMisses = 0;
+      let rightMisses = 0;
+      const mid = (size - 1) / 2;
+
+      missedIndices.forEach(idx => {
+        const row = Math.floor(idx / size);
+        const col = idx % size;
+        const isEdge = row === 0 || row === size - 1 || col === 0 || col === size - 1;
+        if (isEdge) edgeMisses++;
+        if (col < mid) leftMisses++;
+        if (col > mid) rightMisses++;
+      });
+
+      const edgeRatio = edgeMisses / missedIndices.length;
+
+      if (edgeRatio >= 0.7 && size >= 4) {
+        dom.diagnosticTitle.textContent = 'Peripheral Blind Spot Detected';
+        dom.diagnosticText.textContent = `${Math.round(edgeRatio * 100)}% of your missed targets were along the outer edges or corners. Soften your focal gaze at the center dot to widen peripheral intake.`;
+        dom.diagnosticIcon.className = 'mt-0.5 text-amber-400 shrink-0';
+      } else if (leftMisses >= missedIndices.length * 0.75 && missedIndices.length >= 2) {
+        dom.diagnosticTitle.textContent = 'Left-Hemifield Drift';
+        dom.diagnosticText.textContent = 'Most missed targets occurred on the left side of the matrix. Sweep all four quadrants systematically before the flash ends.';
+        dom.diagnosticIcon.className = 'mt-0.5 text-amber-400 shrink-0';
+      } else if (rightMisses >= missedIndices.length * 0.75 && missedIndices.length >= 2) {
+        dom.diagnosticTitle.textContent = 'Right-Hemifield Drift';
+        dom.diagnosticText.textContent = 'Most missed targets occurred on the right side of the matrix. Balance your quadrant chunking across both halves.';
+        dom.diagnosticIcon.className = 'mt-0.5 text-amber-400 shrink-0';
+      } else {
+        dom.diagnosticTitle.textContent = 'Chunk Compression Limit';
+        dom.diagnosticText.textContent = `You retained ${exactMatches} of ${targets} items. Group nearby targets into 2–3 larger visual constellations rather than isolated cells.`;
+        dom.diagnosticIcon.className = 'mt-0.5 text-cyan-400 shrink-0';
+      }
+    }
+
+    function updateStatsUI() {
+      dom.statRounds.textContent = state.stats.rounds;
+      const avg = state.stats.rounds > 0
+        ? `${Math.round(state.stats.totalAccuracySum / state.stats.rounds)}%`
+        : '—';
+      dom.statAccuracy.textContent = avg;
+      dom.statStreak.textContent = state.stats.streak;
+      dom.statBest.textContent = state.stats.bestScore !== null ? `${state.stats.bestScore}%` : '—';
+    }
+
+    // =========================================================================
+    // 10. SETTINGS & EVENT LISTENERS
+    // =========================================================================
+
+    function setMode(newMode) {
+      if (state.phase === 'flashing') return;
+      state.mode = newMode;
+      state.phase = 'idle';
+      state.targetMap.clear();
+      state.userMap.clear();
+
+      dom.modeTabs.forEach(tab => {
+        const active = tab.dataset.mode === newMode;
+        tab.className = active
+          ? 'mode-tab flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+          : 'mode-tab flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-400 hover:text-slate-200 border border-transparent';
+      });
+
+      dom.encodingTip.innerHTML = `<span class="text-cyan-400 font-semibold">Tip:</span> ${MODE_TIPS[newMode]}`;
+      updatePhaseUI();
+      renderGrid();
+    }
+
+    function setDifficulty(newDiff, resetToIdle = true) {
+      if (state.phase === 'flashing') return;
+      state.difficulty = newDiff;
+
+      dom.diffBtns.forEach(btn => {
+        const active = btn.dataset.diff === newDiff;
+        btn.className = active
+          ? 'diff-btn px-2.5 py-1.5 rounded-lg text-xs font-medium border transition text-center bg-cyan-500/20 border-cyan-500/50 text-cyan-200'
+          : 'diff-btn px-2.5 py-1.5 rounded-lg text-xs font-medium border transition text-center bg-slate-800 border-slate-600 text-slate-300 hover:border-slate-500';
+      });
+
+      if (resetToIdle) {
+        state.phase = 'idle';
+        state.targetMap.clear();
+        state.userMap.clear();
+        updatePhaseUI();
+        renderGrid();
+      }
+    }
+
+    function setFlashDuration(val) {
+      const clamped = Math.min(8.0, Math.max(1.0, Number(val)));
+      state.flashDuration = clamped;
+      dom.durationSlider.value = clamped.toFixed(1);
+      dom.durationDisplay.textContent = `${clamped.toFixed(1)}s`;
+
+      dom.presetBtns.forEach(btn => {
+        const presetVal = Number(btn.dataset.preset);
+        const isMatch = Math.abs(presetVal - clamped) < 0.05;
+        btn.className = isMatch
+          ? 'preset-btn px-2 py-1 rounded text-xs font-mono font-medium bg-cyan-500/20 border border-cyan-500/50 text-cyan-200 transition'
+          : 'preset-btn px-2 py-1 rounded text-xs font-mono font-medium bg-slate-800 border border-slate-600 text-slate-300 hover:border-slate-400 transition';
+      });
+
+      if (state.phase === 'idle') {
+        dom.liveTimerText.textContent = `${clamped.toFixed(2)}s`;
+      }
+    }
+
+    function selectShapeTool(shapeId) {
+      state.selectedShapeTool = shapeId;
+      dom.shapeToolBtns.forEach(btn => {
+        const active = btn.dataset.shape === shapeId;
+        btn.className = active
+          ? 'shape-tool-btn flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 border-2 border-cyan-400 text-xs font-semibold text-white shadow-md transition'
+          : 'shape-tool-btn flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 border-2 border-slate-700 text-xs font-semibold text-slate-300 hover:border-slate-500 transition';
+      });
+    }
+
+    // Mode tabs
+    dom.modeTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        sfx.tap();
+        setMode(tab.dataset.mode);
+      });
+    });
+
+    // Difficulty buttons
+    dom.diffBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        sfx.tap();
+        setDifficulty(btn.dataset.diff, true);
+      });
+    });
+
+    // Duration presets & slider
+    dom.presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        sfx.tap();
+        setFlashDuration(btn.dataset.preset);
+      });
+    });
+
+    dom.durationSlider.addEventListener('input', (e) => {
+      setFlashDuration(e.target.value);
+    });
+
+    // Quadrant Chunking Guides toggle
+    dom.btnQuadrantToggle.addEventListener('click', () => {
+      sfx.tap();
+      state.quadrantGuides = !state.quadrantGuides;
+      dom.btnQuadrantToggle.setAttribute('aria-checked', String(state.quadrantGuides));
+      if (state.quadrantGuides) {
+        dom.btnQuadrantToggle.classList.replace('bg-slate-700', 'bg-cyan-500');
+        dom.quadrantKnob.classList.replace('translate-x-0', 'translate-x-5');
+        dom.quadrantOverlay.classList.remove('hidden');
+      } else {
+        dom.btnQuadrantToggle.classList.replace('bg-cyan-500', 'bg-slate-700');
+        dom.quadrantKnob.classList.replace('translate-x-5', 'translate-x-0');
+        dom.quadrantOverlay.classList.add('hidden');
+      }
+    });
+
+    // Auto-Advance toggle
+    dom.btnAutoAdvance.addEventListener('click', () => {
+      sfx.tap();
+      state.autoAdvance = !state.autoAdvance;
+      if (state.autoAdvance) {
+        dom.btnAutoAdvance.classList.add('border-emerald-500/50', 'text-emerald-300', 'bg-emerald-500/10');
+        dom.autoAdvanceDot.classList.replace('bg-slate-500', 'bg-emerald-400');
+      } else {
+        dom.btnAutoAdvance.classList.remove('border-emerald-500/50', 'text-emerald-300', 'bg-emerald-500/10');
+        dom.autoAdvanceDot.classList.replace('bg-emerald-400', 'bg-slate-500');
+      }
+    });
+
+    // Sound toggle
+    dom.btnSoundToggle.addEventListener('click', () => {
+      state.soundEnabled = !state.soundEnabled;
+      dom.iconSoundOn.classList.toggle('hidden', !state.soundEnabled);
+      dom.iconSoundOff.classList.toggle('hidden', state.soundEnabled);
+      if (state.soundEnabled) sfx.tap();
+    });
+
+    // Shape palette tools
+    dom.shapeToolBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        sfx.tap();
+        selectShapeTool(btn.dataset.shape);
+      });
+    });
+
+    // Digit numpad buttons
+    dom.numpadBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        inputDigitToFocusedCell(btn.dataset.digit);
+      });
+    });
+
+    dom.btnNextCell.addEventListener('click', () => {
+      if (state.phase !== 'recall' || state.mode !== 'digits') return;
+      const { size } = DIFFICULTIES[state.difficulty];
+      const totalCells = size * size;
+      sfx.tap();
+      state.focusedDigitCell = state.focusedDigitCell === null ? 0 : (state.focusedDigitCell + 1) % totalCells;
+      renderGrid();
+    });
+
+    // Primary gameplay buttons
+    dom.btnStartFlash.addEventListener('click', startFlashRound);
+    dom.btnClearGrid.addEventListener('click', clearRecallGrid);
+    dom.btnSubmitRecall.addEventListener('click', evaluateRecall);
+    dom.btnNextRound.addEventListener('click', startFlashRound);
+
+    // Keyboard Shortcuts (Space, Enter, Digits 0-9, Shape hotkeys 1-4, Arrow navigation)
+    document.addEventListener('keydown', (e) => {
+      // Avoid interfering when adjusting range input
+      if (document.activeElement === dom.durationSlider && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        if (state.phase === 'idle' || state.phase === 'review') {
+          e.preventDefault();
+          startFlashRound();
+        }
+      } else if (e.key === 'Enter') {
+        if (state.phase === 'recall') {
+          e.preventDefault();
+          evaluateRecall();
+        } else if (state.phase === 'review') {
+          e.preventDefault();
+          startFlashRound();
+        }
+      } else if (state.phase === 'recall' && state.mode === 'shapes') {
+        if (e.key === '1') selectShapeTool('circle');
+        else if (e.key === '2') selectShapeTool('triangle');
+        else if (e.key === '3') selectShapeTool('star');
+        else if (e.key === '4') selectShapeTool('hexagon');
+        else if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') selectShapeTool('eraser');
+      } else if (state.phase === 'recall' && state.mode === 'digits') {
+        if (/^[0-9]$/.test(e.key)) {
+          e.preventDefault();
+          inputDigitToFocusedCell(e.key);
+        } else if (e.key === 'Backspace' || e.key === 'Delete') {
+          e.preventDefault();
+          inputDigitToFocusedCell('clear');
+        } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+          e.preventDefault();
+          const { size } = DIFFICULTIES[state.difficulty];
+          const total = size * size;
+          let cur = state.focusedDigitCell ?? 0;
+          if (e.key === 'ArrowRight') cur = (cur + 1) % total;
+          if (e.key === 'ArrowLeft')  cur = (cur - 1 + total) % total;
+          if (e.key === 'ArrowDown')  cur = (cur + size) % total;
+          if (e.key === 'ArrowUp')    cur = (cur - size + total) % total;
+          state.focusedDigitCell = cur;
+          renderGrid();
+        }
+      }
+    });
+
+    // =========================================================================
+    // 11. INITIALIZE APPLICATION
+    // =========================================================================
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setDifficulty('medium', false);
+      setFlashDuration(3.0);
+      updatePhaseUI();
+      renderGrid();
+    });
+  </script>
+</body>
+</html>
